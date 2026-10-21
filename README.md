@@ -234,7 +234,7 @@ HKCU\Software\Valve\Half-Life\nextclient\<hash>
 
 | Путь | Значение | Кто пишет | Что это |
 |---|---|---|---|
-| `nextclient\global` | `uid` (string) | установщик | GUID игрока, **общий** на машину; уходит заголовком `uid` |
+| `nextclient\global` | `uid` (string) | сам клиент | GUID игрока, **общий** на машину; уходит заголовком `uid` |
 | `nextclient\global` | `LaunchGameCount` (dword) | сама игра | счётчик запусков; уходит заголовком `launchgamecount` |
 | `nextclient\<hash>` | `branch` (string) | установщик | ветка сборки (`main`, своя); уходит заголовком `branch`, используется в `branch_list` |
 | `nextclient\<hash>` | `AppId` (string) | установщик | id этой копии |
@@ -245,9 +245,9 @@ HKCU\Software\Valve\Half-Life\nextclient\<hash>
 переустановка одной копии не ломает другую. По этому же ключу установщик понимает, что в папке
 уже стоит **наш** клиент.
 
-`uid` генерируется один раз и **переиспользуется**: сначала читаем существующий из
-`nextclient\global`, и только если пусто — создаём новый GUID. Иначе каждая переустановка
-будет новым игроком для статистики.
+`uid` установщик **не пишет**: клиент заводит его сам при первом запуске и дальше
+переиспользует. Если перезаписывать `uid` из установщика, каждая переустановка будет
+новым игроком для статистики.
 
 ---
 
@@ -315,7 +315,7 @@ Root: HKCU; Subkey: "Software\Valve\Half-Life\Settings"; ValueName: "CrashInitia
 Root: HKCU; Subkey: "Software\Valve\Half-Life\Settings"; ValueName: "hdmodels";                   ValueType: dword;  ValueData: "$0"
 Root: HKCU; Subkey: "Software\Valve\Half-Life\Settings"; ValueName: "addons_folder";              ValueType: dword;  ValueData: "$1"
 ; --- per-copy ключ: nextclient\<hash>, hash = MD5(путь установки)[:8] ---
-Root: HKCU; Subkey: "Software\Valve\Half-Life\nextclient\global";          ValueName: "uid";    ValueType: string; ValueData: "{code:GetUid}"
+; uid здесь НЕ пишем — его заводит сам клиент в nextclient\global
 Root: HKCU; Subkey: "Software\Valve\Half-Life\nextclient\{code:GetHash}";  ValueName: "branch"; ValueType: string; ValueData: "{#Branch}"; Flags: uninsdeletekey
 Root: HKCU; Subkey: "Software\Valve\Half-Life\nextclient\{code:GetHash}";  ValueName: "AppId";  ValueType: string; ValueData: "{code:GetAppId}"
 
@@ -328,14 +328,6 @@ Type: filesandordirs; Name: "{app}\*"
 Type: dirifempty;     Name: "{app}"
 
 [Code]
-function CoCreateGuid(var g: TGUID): Integer;
-  external 'CoCreateGuid@ole32.dll stdcall';
-function StringFromGUID2(var g: TGUID; lpsz: String; cchMax: Integer): Integer;
-  external 'StringFromGUID2@ole32.dll stdcall';
-
-var
-  gUid: String;
-
 // ---- хеш папки установки -> ключ реестра и AppId ---------------------------
 function GetDirHash(): String;
 var d: String;
@@ -359,24 +351,6 @@ var h: String;
 begin
   h := GetDirHash();
   if h <> '' then Result := 'CS16NC-' + h else Result := 'CS16NC';
-end;
-
-// ---- uid: читаем существующий, генерируем только если пусто ----------------
-function GetUid(Param: String): String;
-var g: TGUID; s: String; n: Integer;
-begin
-  if gUid = '' then begin
-    RegQueryStringValue(HKCU, 'Software\Valve\Half-Life\nextclient\global', 'uid', gUid);
-    if (gUid = '') and (CoCreateGuid(g) = 0) then begin
-      SetLength(s, 100);
-      n := StringFromGUID2(g, s, 100);
-      if n > 0 then begin
-        SetLength(s, n - 1);                 // отбросить завершающий null
-        gUid := Copy(s, 2, Length(s) - 2);   // снять фигурные скобки
-      end;
-    end;
-  end;
-  Result := gUid;
 end;
 
 // ---- проверки пути установки -----------------------------------------------
@@ -526,7 +500,7 @@ end;
 | Пропал `libcef.dll` / `hw.dll`, игра не запускается | антивирус съел файлы неподписанного билда — добавить папку в исключения |
 | Игра сворачивается при первом коннекте | нет правила фаервола для `cstrike.exe` — разрешить в запросе Windows или добавить правило руками |
 | Пустой список серверов | неверный адрес в `backend.json`, не тот протокол/путь, или бэкенд не расшифровал запрос (не тот ключ) |
-| Бэкенд видит нового игрока после каждой переустановки | `uid` перезаписывается вместо переиспользования — читай существующий из `nextclient\global` |
+| Бэкенд видит нового игрока после каждой переустановки | установщик перезаписывает `uid` в `nextclient\global` — это значение должен ставить только клиент |
 | Вторая копия клиента ломает первую | ключ реестра пишется без хеша папки |
 | SmartScreen ругается на `setup.exe` | установщик не подписан — нормально для самосборки |
 | После апдейта патча вернулся официальный домен | `backend.json` перетёрт слоем патча — правь после склейки |

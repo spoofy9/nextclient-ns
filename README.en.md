@@ -236,7 +236,7 @@ HKCU\Software\Valve\Half-Life\nextclient\<hash>
 
 | Path | Value | Written by | What it is |
 |---|---|---|---|
-| `nextclient\global` | `uid` (string) | installer | player GUID, **shared** per machine; sent in the `uid` header |
+| `nextclient\global` | `uid` (string) | the client itself | player GUID, **shared** per machine; sent in the `uid` header |
 | `nextclient\global` | `LaunchGameCount` (dword) | the game itself | launch counter; sent in the `launchgamecount` header |
 | `nextclient\<hash>` | `branch` (string) | installer | build branch (`main` or your own); sent in the `branch` header, used by `branch_list` |
 | `nextclient\<hash>` | `AppId` (string) | installer | id of this copy |
@@ -247,9 +247,9 @@ official one, another community's). Hashing the path makes the key unique per co
 AppIds never clash, and reinstalling one copy doesn't break another. The installer uses the same
 key to detect that **our** client is already installed in a folder.
 
-`uid` is generated once and **reused**: read the existing one from `nextclient\global` first, and
-only create a new GUID if it's empty. Otherwise every reinstall shows up as a new player in your
-stats.
+The installer **does not write** `uid`: the client creates it on first launch and reuses it from
+then on. Overwriting `uid` from the installer makes every reinstall show up as a new player in
+your stats.
 
 ---
 
@@ -317,7 +317,7 @@ Root: HKCU; Subkey: "Software\Valve\Half-Life\Settings"; ValueName: "CrashInitia
 Root: HKCU; Subkey: "Software\Valve\Half-Life\Settings"; ValueName: "hdmodels";                   ValueType: dword;  ValueData: "$0"
 Root: HKCU; Subkey: "Software\Valve\Half-Life\Settings"; ValueName: "addons_folder";              ValueType: dword;  ValueData: "$1"
 ; --- per-copy key: nextclient\<hash>, hash = MD5(install path)[:8] ---
-Root: HKCU; Subkey: "Software\Valve\Half-Life\nextclient\global";          ValueName: "uid";    ValueType: string; ValueData: "{code:GetUid}"
+; do NOT write uid here — the client creates it itself in nextclient\global
 Root: HKCU; Subkey: "Software\Valve\Half-Life\nextclient\{code:GetHash}";  ValueName: "branch"; ValueType: string; ValueData: "{#Branch}"; Flags: uninsdeletekey
 Root: HKCU; Subkey: "Software\Valve\Half-Life\nextclient\{code:GetHash}";  ValueName: "AppId";  ValueType: string; ValueData: "{code:GetAppId}"
 
@@ -330,14 +330,6 @@ Type: filesandordirs; Name: "{app}\*"
 Type: dirifempty;     Name: "{app}"
 
 [Code]
-function CoCreateGuid(var g: TGUID): Integer;
-  external 'CoCreateGuid@ole32.dll stdcall';
-function StringFromGUID2(var g: TGUID; lpsz: String; cchMax: Integer): Integer;
-  external 'StringFromGUID2@ole32.dll stdcall';
-
-var
-  gUid: String;
-
 // ---- install-folder hash -> registry key and AppId --------------------------
 function GetDirHash(): String;
 var d: String;
@@ -361,24 +353,6 @@ var h: String;
 begin
   h := GetDirHash();
   if h <> '' then Result := 'CS16NC-' + h else Result := 'CS16NC';
-end;
-
-// ---- uid: read the existing one, generate only when empty ------------------
-function GetUid(Param: String): String;
-var g: TGUID; s: String; n: Integer;
-begin
-  if gUid = '' then begin
-    RegQueryStringValue(HKCU, 'Software\Valve\Half-Life\nextclient\global', 'uid', gUid);
-    if (gUid = '') and (CoCreateGuid(g) = 0) then begin
-      SetLength(s, 100);
-      n := StringFromGUID2(g, s, 100);
-      if n > 0 then begin
-        SetLength(s, n - 1);                 // drop the trailing null
-        gUid := Copy(s, 2, Length(s) - 2);   // strip the curly braces
-      end;
-    end;
-  end;
-  Result := gUid;
 end;
 
 // ---- install path checks ---------------------------------------------------
@@ -530,7 +504,7 @@ need it):
 | `libcef.dll` / `hw.dll` disappeared, game won't launch | antivirus ate files of an unsigned build — add the folder to exclusions |
 | Game minimizes on the first connect | no firewall rule for `cstrike.exe` — allow it in the Windows prompt or add the rule manually |
 | Empty server list | wrong address in `backend.json`, wrong protocol/path, or the backend failed to decrypt the request (wrong key) |
-| Backend sees a new player after every reinstall | `uid` is overwritten instead of reused — read the existing one from `nextclient\global` |
+| Backend sees a new player after every reinstall | the installer overwrites `uid` in `nextclient\global` — only the client should set that value |
 | A second copy of the client breaks the first | the registry key is written without the folder hash |
 | SmartScreen complains about `setup.exe` | the installer isn't signed — expected for a self-build |
 | The official domain came back after a patch update | `backend.json` was overwritten by the patch layer — edit it after merging |
