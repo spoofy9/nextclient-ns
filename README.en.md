@@ -27,10 +27,6 @@ needs: registry pre-seed, a per-copy key hashed from the install path, and insta
 | [`base.zip`](../../releases/latest) | 303 MiB | `dfa5bcdaca4e910ac66c30299068eb5b65aa6e4416531d8f5f180c7405108931` |
 | [`2.5.4.zip`](2.5.4.zip) | 22 MiB | `eda4cdfbf8e92b91d98e8fe0e9890daa22b38ebb61ff4e5eb434e3d60231cdcb` |
 
-> Links are relative: `2.5.4.zip` lives in the repository, `base.zip` is a
-> [Releases](../../releases/latest) asset (303 MiB exceeds GitHub's 100 MiB per-file limit for
-> repository content). Renaming or moving the repository needs no README changes.
-
 Verify your download:
 
 ```powershell
