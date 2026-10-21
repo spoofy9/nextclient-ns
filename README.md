@@ -24,8 +24,8 @@ firewall, пост-проверка целостности, мультикопи
 
 | Файл | Размер | SHA256 |
 |---|---|---|
-| [`base.zip`](../../releases/latest) | 303 МиБ | `dfa5bcdaca4e910ac66c30299068eb5b65aa6e4416531d8f5f180c7405108931` |
-| [`2.5.4.zip`](2.5.4.zip) | 22 МиБ | `eda4cdfbf8e92b91d98e8fe0e9890daa22b38ebb61ff4e5eb434e3d60231cdcb` |
+| [`base.zip`](../../releases/latest) | 302 МБ | `dfa5bcdaca4e910ac66c30299068eb5b65aa6e4416531d8f5f180c7405108931` |
+| [`2.5.4.zip`](2.5.4.zip) | 21,5 МБ | `eda4cdfbf8e92b91d98e8fe0e9890daa22b38ebb61ff4e5eb434e3d60231cdcb` |
 
 Проверить, что архив скачался целым:
 
